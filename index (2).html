@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Nishika Garden 🌸</title>
+    <style>
+        :root {
+            --primary: #ff477e;
+            --glass: rgba(255, 255, 255, 0.88);
+            --bg-page2-top: #fff0f3; /* Cute soft pink/peach */
+            --bg-page2-bottom: #fef8f9;
+        }
+
+        body, html {
+            margin: 0; padding: 0;
+            height: 100vh; width: 100vw;
+            overflow: hidden;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            display: flex; justify-content: center; align-items: center;
+            touch-action: none;
+            transition: background 1s ease; /* Transition for page 2 bg */
+        }
+
+        /* Initial background (Page 1) */
+        body {
+            background: radial-gradient(circle, #fffafb 0%, #ffeef2 100%);
+        }
+
+        /* Background when on Page 2 */
+        body.page2 {
+            background: linear-gradient(to bottom, var(--bg-page2-top), var(--bg-page2-bottom));
+        }
+
+        #gardenCanvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 10;
+            will-change: transform;
+        }
+
+        .card {
+            position: relative;
+            z-index: 1000;
+            background: var(--glass);
+            backdrop-filter: blur(25px);
+            padding: 50px;
+            border-radius: 40px;
+            text-align: center;
+            box-shadow: 0 30px 60px rgba(255, 71, 126, 0.1);
+            border: 1px solid white;
+            max-width: 450px;
+            opacity: 1;
+            transition: all 0.8s cubic-bezier(0.165, 0.84, 0.44, 1);
+        }
+
+        .card.hidden {
+            transform: translateY(-30px);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        h1 { color: var(--primary); font-size: 2.1rem; margin-bottom: 15px; text-transform: uppercase; }
+        p { color: #444; line-height: 1.6; font-size: 1.2rem; font-style: italic; font-weight: 500; }
+
+        .btn-unlock {
+            margin-top: 25px;
+            padding: 18px 45px;
+            font-size: 1.1rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 10px 25px rgba(255, 71, 126, 0.3);
+            font-weight: bold;
+            transition: 0.3s;
+        }
+
+        .btn-unlock:hover { transform: scale(1.05); background: #f0326b; }
+    </style>
+</head>
+<body onload="initApp()">
+
+    <div class="card" id="mainCard">
+        <h1>HAPPY NATIONAL FLOWERS DAY NISHIKA</h1>
+        <p>In a world full of flowers, you are the one that makes everything bloom with just a smile. ✨</p>
+        <button class="btn-unlock" onclick="revealName()">Unlock Nishika's Garden 🌸</button>
+    </div>
+
+    <canvas id="gardenCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gardenCanvas');
+        const ctx = canvas.getContext('2d', { alpha: true });
+        let flowers = [];
+        let mouse = { x: -1000, y: -1000 };
+        const flowerIcons = ['🌹', '🌷', '🪻', '🌺', '🌸', '✨'];
+        const caches = [];
+        let time = 0; // For background animation
+        let isPage2 = false;
+
+        function preRender() {
+            flowerIcons.forEach(icon => {
+                const c = document.createElement('canvas');
+                c.width = 40; c.height = 40;
+                const cx = c.getContext('2d');
+                cx.font = '24px Arial';
+                cx.textAlign = 'center';
+                cx.textBaseline = 'middle';
+                cx.fillText(icon, 20, 20);
+                caches.push(c);
+            });
+        }
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        window.addEventListener('resize', resize);
+        window.addEventListener('mousemove', e => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+        });
+
+        class Flower {
+            constructor(x, y, cacheIdx, size, isNamePart = false) {
+                this.x = x; this.y = y;
+                this.originX = x; this.originY = y;
+                this.cache = caches[cacheIdx];
+                this.size = size;
+                this.isNamePart = isNamePart;
+                this.angle = Math.random() * 6.28;
+                this.vx = 0; this.vy = isNamePart ? 0 : Math.random() * 1.5 + 1;
+                this.friction = 0.9; 
+                this.ease = 0.07;     
+            }
+
+            update() {
+                if (this.isNamePart) {
+                    let dx = mouse.x - this.x;
+                    let dy = mouse.y - this.y;
+                    let distSq = dx*dx + dy*dy;
+                    let radius = 140;
+
+                    if (distSq < radius * radius) {
+                        let dist = Math.sqrt(distSq);
+                        let force = (radius - dist) / radius;
+                        this.vx -= (dx / dist) * force * 1.8; 
+                        this.vy -= (dy / dist) * force * 1.8;
+                    }
+
+                    this.vx += (this.originX - this.x) * this.ease;
+                    this.vy += (this.originY - this.y) * this.ease;
+                    this.vx *= this.friction;
+                    this.vy *= this.friction;
+                    this.x += this.vx;
+                    this.y += this.vy;
+                } else {
+                    this.y += this.vy;
+                    if (this.y > canvas.height + 50) {
+                        this.y = -50;
+                        this.x = Math.random() * canvas.width;
+                    }
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+                const s = this.size / 24;
+                ctx.scale(s, s);
+                ctx.drawImage(this.cache, -20, -20);
+                ctx.restore();
+            }
+        }
+
+        function initApp() {
+            preRender();
+            resize();
+            startRain();
+        }
+
+        function startRain() {
+            flowers = [];
+            for (let i = 0; i < 60; i++) {
+                flowers.push(new Flower(
+                    Math.random() * canvas.width, 
+                    Math.random() * canvas.height, 
+                    Math.floor(Math.random() * flowerIcons.length), 
+                    Math.random() * 15 + 15, false
+                ));
+            }
+            animate();
+        }
+
+        // Add body class for background transition
+        function revealName() {
+            document.body.classList.add('page2');
+            isPage2 = true;
+            document.getElementById('mainCard').classList.add('hidden');
+            flowers = []; // Clears rain for the second page
+
+            const tCanvas = document.createElement('canvas');
+            const tCtx = tCanvas.getContext('2d');
+            tCanvas.width = canvas.width; tCanvas.height = canvas.height;
+
+            const fSize = Math.min(canvas.width / 5, canvas.height / 3);
+            tCtx.font = `bold ${fSize}px Georgia`;
+            tCtx.textAlign = 'center';
+            tCtx.textBaseline = 'middle';
+            tCtx.fillText("NISHIKA", canvas.width / 2, canvas.height / 2);
+
+            const data = tCtx.getImageData(0, 0, canvas.width, canvas.height).data;
+            const gap = 16; 
+
+            for (let y = 0; y < canvas.height; y += gap) {
+                for (let x = 0; x < canvas.width; x += gap) {
+                    if (data[(y * canvas.width + x) * 4 + 3] > 128) {
+                        flowers.push(new Flower(
+                            x, y, 
+                            Math.floor(Math.random() * flowerIcons.length), 
+                            14, true
+                        ));
+                    }
+                }
+            }
+        }
+
+        // Draw cute background for Page 2
+        function drawPage2Background() {
+            if (!isPage2) return;
+            time += 0.01;
+            ctx.save();
+            ctx.strokeStyle = "rgba(255, 182, 193, 0.4)"; // Soft pink lines
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            
+            for (let i = 0; i < 3; i++) {
+                let yOffset = Math.sin(time + i * 2) * 50;
+                ctx.moveTo(0, canvas.height * 0.3 + yOffset + i * 100);
+                for (let x = 0; x < canvas.width; x += 10) {
+                    let y = Math.sin(x * 0.005 + time + i * 2) * 50;
+                    ctx.lineTo(x, canvas.height * 0.3 + y + i * 100);
+                }
+            }
+            ctx.stroke();
+
+            // Add subtle hearts line art
+            ctx.fillStyle = "rgba(255, 105, 180, 0.3)";
+            for (let i = 0; i < 2; i++) {
+                let yOffset = Math.sin(time + i * 4) * 30;
+                drawHeartLine(canvas.height * 0.2 + yOffset + i * 200, time + i * 3);
+            }
+            ctx.restore();
+        }
+
+        // Helper function for heart line art
+        function drawHeartLine(yBase, t) {
+            for (let x = 50; x < canvas.width; x += 300) {
+                ctx.save();
+                let xOffset = Math.sin(t + x * 0.01) * 20;
+                ctx.translate(x + xOffset, yBase);
+                ctx.scale(0.5, 0.5);
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.bezierCurveTo(-10, -10, -20, 10, 0, 20);
+                ctx.bezierCurveTo(20, 10, 10, -10, 0, 0);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawPage2Background(); // Draw background behind the name
+            for (let i = 0; i < flowers.length; i++) {
+                flowers[i].update();
+                flowers[i].draw();
+            }
+            requestAnimationFrame(animate);
+        }
+    </script>
+</body>
+</html>
